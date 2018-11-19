@@ -28,6 +28,10 @@ Let me know if you encounter problems with other catalogs: maybe these can be so
 
 devtools::install_github("HanOostdijk/CSW",build_vignettes = T)
 
+## PDF manual and vignette
+
+The folder manual_pdf contains the package manual and vignette in PDF format.
+
 ## References 
 
 - Nationaal GeoRegister (NGR) : hub for location spatial information for the Netherlands (in Dutch)  

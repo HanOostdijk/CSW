@@ -5,10 +5,13 @@ date: "`r Sys.Date()`"
 output: 
   rmarkdown::html_vignette :
     keep_md: true
+  rmarkdown::pdf_document :
+    keep_tex: true
+linkcolor: blue
 vignette: >
   %\VignetteIndexEntry{Vignette Title}
-  %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
+  %\VignetteEngine{knitr::rmarkdown}
 ---
 
 ```{r setup, include = FALSE}
@@ -58,7 +61,7 @@ The `CSW`&nbsp;R&nbsp;package provides functions that use the same GET method to
 
 This package is until now only tested on the 
 [Nationaal GeoRegister(NGR)](http://nationaalgeoregister.nl/geonetwork/srv/dut/search) 
-catalog with CSW 2.0.2. By using the `CSW_set_url` and `CSW_set_version` functions these values will be replaced by the ones provided by the user.\cr\cr
+catalog with CSW 2.0.2. By using the `CSW_set_url` and `CSW_set_version` functions these values will be replaced by the ones provided by the user.
 
 Let me know if you encounter problems with other catalogs: maybe these can be solved.
 
