@@ -7,7 +7,7 @@ makes use of it. Apart from showing available datasets, the page also gives info
 On the [Catalogue Service](http://www.opengeospatial.org/standards/cat) page of the 
 [Open Geospatial Consortium (OGC)](http://www.opengeospatial.org/) 
 [Standards](http://www.opengeospatial.org/docs/is) page the full
-[Specification](http://portal.opengeospatial.org/files/?artifact_id=20555) for  the latest version (2.0.2) can be found. See the [References][#references] section for more links. 
+[Specification](http://portal.opengeospatial.org/files/?artifact_id=20555) for  the latest version (2.0.2) can be found. See the [References](#references) section for more links. 
 
 The [Catalogue Service](http://www.opengeospatial.org/standards/cat) page describes: 
 
