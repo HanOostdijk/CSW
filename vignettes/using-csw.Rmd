@@ -1,0 +1,334 @@
+---
+title: "Using CSW"
+author: "Han Oostdijk"
+date: "`r Sys.Date()`"
+output: 
+  rmarkdown::html_vignette :
+    keep_md: true
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+## Contents {#contents}
+
+- [Introduction: Catalog Services for the Web (CSW)](#introduction)  
+- [R package CSW](#r-package-csw)  
+- [Utily functions](#utils)  
+- [CSW functions](#csw-functions)  
+- [The CSW_Get* functions](#csw_getrecords)  
+  - [`summary` report in `data.frame`](#summary-table)  
+  - [`full` report in `data.frame` within list](#full-list)  
+  - [`brief` report in `xml` document](#brief-xml)  
+- [Queries](#queries)  
+  - [Wildcard queries](#wildcard-queries)  
+  - [Spatial queries](#spatial-queries)  
+- [CSW_GetCapabilities](#csw-getcapabilities)  
+- [CSW_DescribeRecords](#csw-describerecords)  
+- [CSW_GetDomain](#csw-getdomain)  
+- [CSW_GetDomainParameterNames](#csw-getdomainparms)  
+- [CSW_GetQueryables](#csw-getqueryables) 
+- [References](#references)
+
+## Introduction: Catalog Services for the Web (CSW) {#introduction}
+I ran into the Catalog Services for the Web (CSW) when I wanted to see which public geographical data was available for the Netherlands: the [Nationaal GeoRegister (NGR)](http://nationaalgeoregister.nl/geonetwork/srv/dut/search) 
+makes use of it. Apart from showing available datasets, the page also gives information about the underlying technology: CSW. 
+
+On the [Catalogue Service](http://www.opengeospatial.org/standards/cat) page of the 
+[Open Geospatial Consortium (OGC)](http://www.opengeospatial.org/) 
+[Standards](http://www.opengeospatial.org/docs/is) page the full
+[Specification](http://portal.opengeospatial.org/files/?artifact_id=20555) for  the latest version (2.0.2) can be found. See the [References](#references) section for more links. 
+
+The [Catalogue Service](http://www.opengeospatial.org/standards/cat) page describes: 
+
+> Catalogue services support the ability to publish and search collections of descriptive information (metadata) for data, services, and related information objects. Metadata in catalogues represent resource characteristics that can be queried and presented for evaluation and further processing by both humans and software. Catalogue services are required to support the discovery and binding to registered information resources within an information community.
+
+## R package CSW {#r-package-csw}
+One of the ways to get information about and from a CSW catalog is the GET method of the HTTP protocol. By specifying a properly formed URL in a internet browser the requested information is shown in the browser window.  
+
+The `CSW`&nbsp;R&nbsp;package provides functions that use the same GET method to place the result in an&nbsp;R&nbsp;object as a data.frame, xml_document or integer variable.  
+`Operations` are recognized by the CSW interface in the URL by the phrase `request=`. The package has functions for the **read-only** `Operations`. Also included are some utility functions.  
+
+This package is until now only tested on the 
+[Nationaal GeoRegister(NGR)](http://nationaalgeoregister.nl/geonetwork/srv/dut/search) 
+catalog with CSW 2.0.2. By using the `CSW_set_url` and `CSW_set_version` functions these values will be replaced by the ones provided by the user.\cr\cr
+
+Let me know if you encounter problems with other catalogs: maybe these can be solved.
+
+## Utily functions {#utils}
+As stated in the [Introduction]{#introduction} the package is developped and tested for CSW version 2.0.2 for the the catalog of [Nationaal GeoRegister(NGR)](http://nationaalgeoregister.nl/geonetwork/srv/dut/search) but other catalogs and versions can be used. To see which catalog or version is active, use a `get` utility function:
+```{r}
+library(CSW)
+CSW_get_version()
+CSW_get_url()
+```
+To use another catalog or version use the corresponding `set` function. NB. this version or catalog will then be active; that is used during the remainder of the session until another use of the function. E.g.
+<!-- 
+https://www.dov.vlaanderen.be/geonetwork/srv/dut/csw? 
+https://rda.ucar.edu/geoportal/csw/discovery?
+http://www.ga.gov.au/geonetwork/srv/en/csw?
+--> 
+
+```{r}
+CSW_set_url("http://nationaalgeoregister.nl/geonetwork/srv/dut/inspire?")
+CSW_get_url()
+```
+The other utility function is `CSW_display_node`. Most CSW functions of the package have an option to produce an `xml` object as output. The standard `print` method can be also be used but truncates the output.
+
+## CSW functions {#csw-functions}
+The functions in the `CSW`&nbsp;package that are related to interface operations are all prefixed with `CSW_`. 
+Further they have in common the following three arguments:
+
+- version : the default is given by `CSW_get_version()`. See [previous section](#utils).  
+- baseurl : the default is given by `CSW_get_url()`. Also see [previous section](#utils).
+- verbose : `r FALSE` (default), `r TRUE` or `r "F"` that indicates if the generated GET URL should be shown and if so then how. `r FALSE` means do not show,  `r TRUE` means show only the (decoded) variable part of the request and `r "F"` means show the full URL.
+
+A question that could arise is: "what operations does the CSW interface have?" But I think that the first question a starting user of the CSW interface probably will have is: "which contents has this catalog?". Therefore I will describe briefly all CSW functions, but I will start with the `CSW_GetRecords` function.
+
+## The CSW_Get* functions  {#csw_getrecords}
+The easiest way to get the contents of the catalog in an&nbsp;R&nbsp;variable is to use the **`CSW_GetRecords`** function without specifying any argument. The formal arguments of the function will then be set to (the first of) the default value(s). This includes the `constraint` argument with as default value the empty string (i.e. no restriction on the records that are returned). So let us comment out the `CSW_GetRecords` statement and use the **`CSW_GetHits`** function to find out how many records we would have received.
+```{r}
+#df = CSW_GetRecords()
+( nh = CSW_GetHits(verbose='F') )
+```
+We specified `verbose='F'` to see which URL was generated and because `constraint` was not specified it was set to the empty string. So we see:  
+
+- the URL is still set to `r CSW_get_url()` as done in [Utily functions](#utils) 
+- this catalog contains in total `r nh` records.
+
+For demonstration purposes we will better apply a constraint (see the section [Queries](#queries) for more about queries in CSW) and being Dutch I want to see all entries with a phrase starting with 'water' :
+
+```{r}
+( nw = CSW_GetHits(constraint="Title LIKE 'water%' ") )
+```
+This constraint would lead to `r nw` records. 
+
+### `summary` report in `data.frame`  {#summary-table}
+To actually retrieve these records we use the `CSW_GetRecords` function:
+```{r}
+df1 = CSW_GetRecords(constraint="Title LIKE 'water%'")
+str(df1,strict.width='cut')
+```
+We notice here:  
+
+- the result `df` is a data.frame because `table` is the default value for the `output` argument. Other possible values are `list` and `xml`.  
+- the dimensions of `df` are `r glue::glue_collapse(dim(df1),sep=', ',last = ' and ')`. 
+The number of rows is `r dim(df1)[1]` and not `r nw` because the argument `maxRecords` has the default value  `10`. The number of columns is `r dim(df1)[2]`  because the argument `ElementSetName`  has the default value `summary`. Other values are `full` (that gives more) and `brief` (that gives less) columns as output. 
+
+### `full` report in `data.frame` within list  {#full-list}
+```{r lst,echo=F,results='hide'}
+lst1 = CSW_GetRecords(constraint="Title LIKE 'water%'", 
+	ElementSetName = 'full', maxRecords=15, startPosition=11,output='list')
+```
+The following code shows the `list` output with the maximum number of columns: `ElementSetName = 'full'`. Notice that because of `output='list'` the result now includes the number of total and retrieved records. The latter now being 
+`r lst1$nrr` because we set `maxRecords=15`. In the previous code block we retrieved the first 10 records because the default value for `startPosition` is 1. By setting `startPosition = 11` in combination with 
+`maxRecords = 15` we now retrieve the records 11 up to 25.
+
+```{r ref.label='lst',eval=F}
+```
+```{r}
+str(lst1,strict.width='cut')
+```
+
+### `brief` report in `xml` document {#brief-xml}
+```{r echo=F}
+df2 = CSW_GetRecords(constraint="Title LIKE 'water%'", 
+	ElementSetName = 'brief')
+nms2 = glue::glue_collapse(glue::backtick(names(df2)),sep=', ',last = ' and ')
+```
+The last option for `output` is `xml`. Because this output is rather voluminous we demonstrate this with the **`CSW_GetRecordById`** function. This function uses the argument `id` instead of `constraint`. Here we indicate that we want the `brief` output (with only the fields `r nms2`) and we use the utility function `CSW_display_node` to show the resulting xml document. 
+```{r}
+xml1 = CSW_GetRecordById(
+	id="baa1ea45-1cdc-4589-9793-b9f245b7776d", 
+	ElementSetName = 'brief', output='xml')
+CSW_display_node(xml1)
+```
+I think it is most convenient that the data is returned in the form of table. But the entries contain more data than is included in the tables (even with the `full` output). When one needs that information one can use the `xml` output as shown above. In that case a second data model can be requested by specifying a different `outputSchema` like done here:
+```{r}
+xml2 = CSW_GetRecordById(
+	id="baa1ea45-1cdc-4589-9793-b9f245b7776d", 	
+	namespace = 'gmd:http://www.isotc211.org/2005/gmd',
+	outputSchema='http://www.isotc211.org/2005/gmd',
+	ElementSetName = 'brief', output='xml')
+CSW_display_node(xml2)
+```
+
+## Queries {#queries}
+In the section [CSW_Get* functions](#csw_getrecords) we showed how to constraint the records that are retrieved (`CSW_GetRecords`) or counted (`CSW_GetHits`) with the `constraint` argument. The query language and its version are set with the arguments `constraintLanguage` (default `CQL_TEXT`) and `constraint_language_version` (default `1.1.0`).   
+
+The [GeoServer Tutorial](https://docs.geoserver.org/stable/en/user/tutorials/cql/cql_tutorial.html) and the
+[ECQL Reference](https://docs.geoserver.org/stable/en/user/filter/ecql_reference.html#filter-ecql-reference) that is mentioned in this tutorial provide examples of possible queries. 
+NB: GeoServer has extended the CQL language and these references don't make clear which language constructs are genuine CQL and which belong to the extended set. And apparently there are more CSW servers than GeoServer. 
+
+### Wildcard queries {#wildcard-queries}
+It possible to use wildcards in constraint. The `_` (underscore) stands for one arbitrary character and the `%` (percentage) stands for a character vector of arbitrary characters of length zero or more. The following examples count the records that have the phrase `water` somewhere in the title with and without the wildcards :  
+
+- `n1` counts the records that have the word `water` (irrespective to case) in the title. Records without this word but with e.g.  `Rijkswaterstaat` are not counted.  
+- `n2` counts the records that have a word starting with `water` (irrespective to case) in the title. Records with `waterkwaliteit` are counted but also the words counted under `n1`.  
+- `n3` counts the records that have a word ending with `water` (irrespective to case) in the title. Records with `drinkwater` are counted but also the words counted under `n1`.  
+- `n4` counts the records that have a word containing the phrase `water` (irrespective to case) in the title. Records with e.g.  `Rijkswaterstaat` are counted but also those under `n1`, `n2` and `n3`.  
+- `n5` counts the records that have a word containing the phrase `water` (irrespective to case) with one additional character in the title. Records with `Physical Waters` will match but not records with (only) `Rijkswaterstaat`.
+
+```{r}
+(n1 = CSW_GetHits(constraint = "Title LIKE 'water'"))
+(n2 = CSW_GetHits(constraint = "Title LIKE 'water%'"))
+(n3 = CSW_GetHits(constraint = "Title LIKE '%water'"))
+(n4 = CSW_GetHits(constraint = "Title LIKE '%water%'"))
+(n5 = CSW_GetHits(constraint = "Title LIKE 'water_'"))
+```
+Of course, to actually retrieve these records replace `CSW_GetHits` by `CSW_GetRecords`.
+
+### Spatial queries {#spatial-queries}
+It is also possible to apply a constraint on the `r nh` records in this catalog based on the coordinates of the entries. These coordinates have to specified in the 'standard' coordinates in degrees in latitude/longitude order (EPSG:4326,WGS84). In the code below we firstly request (again) the number of records in the catalog. Then we request the number of records for which the 
+[BoundingBox](https://en.wikipedia.org/wiki/Minimum_bounding_box) intersects a region around Rotterdam. One of the data elements of a catalog entry is the `BoundingBox` and the Rotterdam area is also specified by its `BoundingBox`. In the last query we request the number of entries that do not intersect with the Rotterdam area: fully lie outside this area. In this way all entries with maps for the whole of the Netherlands will be excluded because they include the Rotterdam area. We are happy to see that the numbers `n7` and `n8` add up to `n6`.
+```{r}
+# all records
+(n6 = CSW_GetHits(constraint = ""))
+# number of records for a bounding box intersecting with an area around Rotterdam
+xmin = 3.91 ; xmax = 4.67 ; ymin = 51.78 ; ymax = 53.06 ;
+( bbox_Rdam = glue::glue("{xmin}, {ymin}, {xmax}, {ymax}") )
+( n7 = CSW_GetHits(constraint = glue::glue("BBOX(the_geom, {bbox_Rdam})")) )
+# number of records for a bounding box not intersecting (this) Rotterdam area
+( pol_Rdam = glue::glue("{xmin} {ymin}, {xmin} {ymax}, {xmax}  {ymax},  {xmax}  {ymin}, {xmin} {ymin}") )
+( n8 = CSW_GetHits(constraint = glue::glue("DISJOINT(the_geom, POLYGON(({pol_Rdam})))")) )
+```
+See the spatial section of 
+[ECQL Reference](https://docs.geoserver.org/stable/en/user/filter/ecql_reference.html#spatial-predicate) for more possibilities for spatial queries
+<!--
+This section is hidden because it is very data dependent:
+We are checking the limited number (`r n8`) of records that are 'away from Rotterdam'. We have requested the `xml` output and extracted from this the `abstract` and the `Boundingbox` to see if the constraint was well specified. Because we saw that the order of coordinates for the first ten records was other than expected we extracted from the `boundingbox` not only the coordinates but also the `crs`. We think that the provider for the first ten records (Gemeenten Bloemendaal en Heemstede) made a mistake in the order of the coordinates: according to the [documentation](https://epsg.io/4326) the x-coordinate comes first. The specification of the `crs` for these records is also incorrect: `urn:ogc:def:crs:::EPSG:28992` instead of `urn:ogc:def:crs:EPSG::28992` (see Table 8 in the [Specification Document](https://portal.opengeospatial.org/files/?artifact_id=77855)). As an additional remark: the abstracts in the records 11, 13 and 14 forget to describe the area they handle!? In the table below we only show the first 80 characters of the abstract.
+
+```{r echo=F,eval=F}
+x1 = CSW_GetRecords(
+	 constraint =  glue::glue("DISJOINT(the_geom, POLYGON(({pol_Rdam})))"),
+	 ElementSetName = 'full', output='xml', maxRecords=n8)
+# retrieve abstracts
+x2 = xml2::xml_find_all(x1,'.//csw:Record')
+a1 = purrr::map_chr(xml2::xml_find_first(x2,'.//dct:abstract'),~xml2::xml_text(.)) 
+a1 = stringr::str_sub(a1,end=80)
+# retrieve BoundingBox nodes
+bb = purrr::map(x2,~xml2::xml_find_first(.,'.//ows:BoundingBox'))
+# retrieve coordinates of BoundingBoxes
+a2 = purrr::map_chr(bb,~xml2::xml_text(.)) 
+a2 = purrr::map(stringr::str_extract_all(a2, '[.0123456789]+'),~as.numeric(.))
+a2 = purrr::map(a2,~round(.,digits = 2))
+# retrieve crs indications
+a3 = purrr::map_chr(bb,~xml2::xml_attr(.,'crs')) 
+unique(a3) # show which crs values are found
+a12 = tibble::tibble(abstract=a1,bbox_first=a2,crs_first=a3)
+knitr::kable(a12,format='html')
+```
+-->
+
+## CSW_GetCapabilities {#csw-getcapabilities}
+The **`CSW_GetCapabilities`** function gives information about the capabilities that are available to query the catalog. By calling this function without arguments we receive an `xml` document with this information
+```{r}
+gc = CSW_GetCapabilities()
+```
+We can view the contents of this document (e.g.  with the utility function `CSW_display_node`) and study its structure. We see among other things the operations that are available and the parameters with which these operations can be called. Apart of viewing the document we can also select parts of it with `xml2`&nbsp;package functions by using `XPATH` expressions. Here we will not display the whole document but only the part that is concerned with the `GetRecords` operation. So first we will use the `XPATH` language to find select (and display) the section about `GetRecords` in the `GetCapabilities` output
+```{r}
+CSW_display_node(
+	xml2::xml_find_first(gc, '//ows:Operation[@name="GetRecords"]'))
+```
+In the previous output we see the parameters and the fields that can be used in the `GetRecords` operation (i.e. the `CSW_GetRecords` function discussed above): e.g. parameter `outputFormat` is restricted to the value `application/xml` and parameter `typeNames` accepts four different values. In the same way we find the names of the operation sections.
+```{r}
+ops=purrr::map_chr(xml2::xml_find_all(gc, '//ows:Operation'),~xml2::xml_attr(.,'name')) 
+print(ops)
+```
+So we see that `GetCapabilities` declares `r length(ops)` operations:
+ `r glue::glue_collapse(glue::backtick(ops),sep=", ",last= " and ")`. We will discuss now the remaining (read-only) operations.
+
+## CSW_DescribeRecords {#csw-describerecords}
+One of the CSW requests is for retrieving a description of the data  that can be retrieved. I could not get it to work until I saw the [gist](https://gist.github.com/FrieseWoudloper/b7cad022cb75ba531ebbececf5fc85db) by [FrieseWoudloper](https://twitter.com/FrieseWoudloper): the request uses the `typeName` and not the `typeNames` parameter. Both parameter names are now accepted by the package. The gist also mentions and demonstrates two data models. The example below does three request to retrieve a data model as show in the gist: first for the `Dublin Core metadatamodel`, then for the `ISO 19119 metadatamodel` and lastly for both models. The outputs are not shown here because they are very voluminous.
+
+```{r eval=F}
+## Dublin Core metadatamodel :
+dr= CSW_DescribeRecord(
+	namespace = 'csw:http://www.opengis.net/cat/csw/2.0.2',
+	typeNames = 'csw:Record',verbose='F')
+CSW_display_node(dr)
+## ISO 19119 metadatamodel :
+dr=  CSW_DescribeRecord(
+	namespace = 'gmd:http://www.isotc211.org/2005/gmd',
+	typeNames = 'gmd:MD_Metadata')
+CSW_display_node(dr)
+## both Dublin Core and ISO 19119 metadatamodel :
+dr =  CSW_DescribeRecord(
+	namespace = c('csw:http://www.opengis.net/cat/csw/2.0.2',
+		'gmd:http://www.isotc211.org/2005/gmd'),
+	typeNames = c('csw:Record','gmd:MD_Metadata') )
+CSW_display_node(dr)
+```
+
+## CSW_GetDomain {#csw-getdomain}  
+With the `GetDomain` operation the CSW server can return information about `ParameterName`s or `PropertyName`s. 
+
+### CSW_GetDomain ParameterName {#csw-getdomain-parameter}  
+We can inquire after the parameters of an operation by specifying the `ParameterName` argument. This argument consists of one or more `operation.parameter` pairs as in the following example. The output is a list (or alternatively an xml_document) with the values that can be used for the parameters. In each pair the part before the point should be an operation; the part after the point a parameter. [CSW_GetDomainParameterNames](#csw-getdomainparms) gives you the same information for all possible combinations (at the cost of some extra run-time). An example of `CSW_GetDomain` for two parameters:
+```{r}
+x = CSW_GetDomain(
+	ParameterName='DescribeRecord.outputFormat,GetRecords.outputSchema',
+	output='list') 
+print(x)
+```
+So we see that the `outputFormat` parameter of the `DescribeRecord` operation can take one value ('application/xml') and the `outputSchema` parameter of the `GetRecords` operation can take four.
+
+### CSW_GetDomain PropertyName {#csw-getdomain-property}  
+We can also use the `CSW_GetDomain` function to inquire which values a certain field can take in a catalog. We do this by specifying the fieldname in the `PropertyName` argument. This argument consists of one or more fieldnames as in the following example. The output is (just as in the [ParameterName](#csw-getdomain-parameter) case) a list (or alternatively an xml_document) with the values are taken (at that moment) by the field. [CSW_GetQueryables](#csw-getqueryables) will show you which fieldnames (`PropertyNames`) are recognized.
+```{r}
+gd = CSW_GetDomain(
+	PropertyName='Language,GeographicDescriptionCode',
+	output='list') 
+print(gd)
+```
+
+## CSW_GetDomainParameterNames {#csw-getdomainparms}
+The function `CSW_GetDomainParameterNames` calls [CSW_GetDomain](#csw-getdomain) for each `operator`*`parameter` combination and places the result in a data.frame. 
+```{r}
+gdp = CSW_GetDomainParameterNames() 
+knitr::kable(gdp)
+```
+
+## CSW_GetQueryables {#csw-getqueryables} 
+The function `CSW_GetQueryables` retrieves the names of properties (fields) that can be used in the [CSW_GetDomain](#csw-getdomain--property) (`PropertyName` case) or in a query. The output is a list with two sublists: one with the 'SupportedISOQueryables' and one with the 'AdditionalQueryables'.
+```{r}
+gq = CSW_GetQueryables() 
+gq
+```
+
+In the first sublist we see the fields `Language` and `GeographicDescriptionCode` that were used in 
+[CSW_GetDomain PropertyName](#csw-getdomain-property). 
+
+## References {#references}
+
+[Supported filter languages](https://docs.geoserver.org/stable/en/user/filter/syntax.html)
+[OpenGIS Catalog Services Specification](http://portal.opengeospatial.org/files/?artifact_id=3843) 
+
+- Nationaal GeoRegister (NGR) : hub for location spatial information for the Netherlands (in Dutch)  
+[  http://nationaalgeoregister.nl/geonetwork/srv/dut/search](http://nationaalgeoregister.nl/geonetwork/srv/dut/search)  
+- Publieke Dienstverlening op de Kaart (PDOK) :   platform for open spatial data (in Dutch)  
+[  https://www.pdok.nl/](https://www.pdok.nl/)  
+- Description APIs (including CSW) for PDOK environment (in Dutch)   
+[  https://pdok-ngr.readthedocs.io/](https://pdok-ngr.readthedocs.io/).   
+- Description of GeoServer services (including CSW)  
+[  https://docs.geoserver.org/latest/en/user/services/index.html](https://docs.geoserver.org/latest/en/user/services/index.html)
+- Catalogue Service page of the Open Geospatial Consortium (OGC)  
+[  http://www.opengeospatial.org/standards/cat](http://www.opengeospatial.org/standards/cat)  
+- Specification of Catalog Services for the Web (CSW) version 2.0.2  
+[  http://portal.opengeospatial.org/files/?artifact_id=20555](http://portal.opengeospatial.org/files/?artifact_id=20555)  
+- GeoServer Tutorial section about queries  
+[  https://docs.geoserver.org/stable/en/user/tutorials/cql/cql_tutorial.html](https://docs.geoserver.org/stable/en/user/tutorials/cql/cql_tutorial.html)  
+- GeoServer reference for ECQL queries  
+[  https://docs.geoserver.org/stable/en/user/filter/ecql_reference.html#filter-ecql-reference](https://docs.geoserver.org/stable/en/user/filter/ecql_reference.html#filter-ecql-reference)  
+- Examples for DescribeRecords by [FrieseWoudloper](https://twitter.com/FrieseWoudloper)  
+[https://gist.github.com/FrieseWoudloper/b7cad022cb75ba531ebbececf5fc85db](https://gist.github.com/FrieseWoudloper/b7cad022cb75ba531ebbececf5fc85db)  
+
+[Back to top](#top)
+
